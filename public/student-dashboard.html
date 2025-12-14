@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - HireMeNow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1>Student Dashboard</h1>
+  <nav id="navLinks"></nav>
+</header>
+
+<main>
+  <div style="max-width:1000px; margin:2rem auto;">
+
+  <div class="portfolio-container">
+    <h2>My Portfolio</h2>
+    <form id="cvForm">
+      <div class="form-grid">
+        <div><label>Full Name</label><input type="text" id="full_name" required></div>
+        <div><label>Email</label><input type="email" id="email" required></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Phone</label><input type="text" id="phone"></div>
+        <div><label>Skills (comma separated)</label><input type="text" id="skills"></div>
+      </div>
+      <div class="form-grid full-width">
+        <label>Education</label>
+        <textarea id="education" rows="4"></textarea>
+      </div>
+      <div class="form-grid full-width">
+        <label>Experience</label>
+        <textarea id="experience" rows="4"></textarea>
+      </div>
+      <div class="form-grid full-width">
+        <label>Summary</label>
+        <textarea id="summary" rows="4"></textarea>
+      </div>
+      <button type="submit">Save Portfolio</button>
+    </form>
+  </div>
+
+    <!-- APPLIED JOBS -->
+    <h2 style="margin-bottom:1.5rem;">My Applied Jobs</h2>
+    <div id="appliedJobs">Loading...</div>
+  </div>
+</main>
+
+<footer><p>© 2025 HireMeNow. All rights reserved.</p></footer>
+
+<script src="js/auth.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const user = await setupAuth();
+    if (user?.role !== "student") return location.href = "/index.html";
+
+    const token = localStorage.getItem("token");
+    const appliedJobsContainer = document.getElementById("appliedJobs");
+
+    // ==================== LOAD PORTFOLIO ====================
+    try {
+      const cvRes = await fetch("/api/portfolio/form", { headers: { authorization: `Bearer ${token}` } });
+      const cv = await cvRes.json();
+
+      if (cv) {
+        document.getElementById("full_name").value = cv.full_name || "";
+        document.getElementById("email").value = cv.email || "";
+        document.getElementById("phone").value = cv.phone || "";
+        document.getElementById("education").value = cv.education || "";
+        document.getElementById("experience").value = cv.experience || "";
+        document.getElementById("skills").value = cv.skills || "";
+        document.getElementById("summary").value = cv.summary || "";
+      }
+    } catch (err) {
+      console.error("Failed to load portfolio:", err);
+    }
+
+    // ==================== SAVE PORTFOLIO ====================
+    document.getElementById("cvForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const formData = {
+        full_name: document.getElementById("full_name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        education: document.getElementById("education").value.trim(),
+        experience: document.getElementById("experience").value.trim(),
+        skills: document.getElementById("skills").value.trim(),
+        summary: document.getElementById("summary").value.trim()
+      };
+
+      const res = await fetch("/api/portfolio/form", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (res.ok) {
+        alert("Portfolio saved successfully!");
+      } else {
+        alert("Failed to save portfolio");
+      }
+    };
+
+    // ==================== LOAD APPLIED JOBS ====================
+    try {
+      const res = await fetch("/api/student/applications", {
+        headers: { authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        appliedJobsContainer.innerHTML = `<p>Error ${res.status}: Failed to load applications</p>`;
+        return;
+      }
+
+      const applications = await res.json();
+
+      if (applications.length === 0) {
+        appliedJobsContainer.innerHTML = `<p>You haven't applied to any jobs yet. <a href="jobs.html">Browse jobs →</a></p>`;
+        return;
+      }
+
+      appliedJobsContainer.innerHTML = applications.map(app => `
+        <div class="job-card">
+          <h3>${app.title}</h3>
+          <p>${app.description}</p>
+          <p><strong>Type:</strong> ${app.type || "N/A"} | <strong>Salary:</strong> $${app.salary || "Negotiable"}</p>
+          <p><small>Applied on: ${new Date(app.applied_at).toLocaleDateString()}</small></p>
+          <button class="btn" onclick="cancelApplication(${app.job_id}, this)"
+                  style="background:#c0392b;padding:.6rem 1.2rem;font-size:.9rem;">
+            Cancel Application
+          </button>
+        </div>
+      `).join("");
+
+    } catch (err) {
+      appliedJobsContainer.innerHTML = "<p>Network error loading applications</p>";
+      console.error(err);
+    }
+  });
+
+  // ==================== CANCEL APPLICATION ====================
+  async function cancelApplication(rawJobId, button) {
+    if (!confirm("Cancel your application?")) return;
+
+    const jobId = Number(rawJobId);
+    if (isNaN(jobId) || jobId <= 0) {
+      alert("Invalid job ID: " + rawJobId);
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`/api/applications/${jobId}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        button.closest(".job-card").remove();
+        alert("Application cancelled");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Failed to cancel");
+      }
+    } catch (err) {
+      alert("Network error");
+    }
+  }
+</script>
+</body>
+</html>

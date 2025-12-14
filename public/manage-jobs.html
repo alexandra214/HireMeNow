@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Jobs - Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header><h1>Admin – Manage Jobs</h1><nav id="navLinks"></nav></header>
+  <main>
+    <div style="max-width:1000px;margin:2rem auto;">
+      <div id="jobsList">Loading jobs...</div>
+    </div>
+  </main>
+  <footer><p>© 2025 HireMeNow But wait</p></footer>
+
+  <script src="js/auth.js"></script>
+  <script>
+    setupAuth().then(user => {
+      if (user.role !== "admin") location.href = "/jobs.html";
+      loadJobs();
+    });
+
+    async function loadJobs() {
+      const res = await fetch("/api/jobs");
+      const jobs = await res.json();
+      document.getElementById("jobsList").innerHTML = `
+        <table style="width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.06);">
+          <thead style="background:#2c3e50;color:#fff;"><tr>
+            <th style="padding:1rem;">ID</th><th>Title</th><th>Employer ID</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody>
+            ${jobs.map(j => `
+              <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:1rem;">${j.id}</td>
+                <td>${j.title}</td>
+                <td>${j.employer_id}</td>
+                <td>${j.active ? "Active" : "Inactive"}</td>
+                <td>
+                  <button onclick="deleteJob(${j.id})" style="background:#c0392b;margin-left:.5rem;padding:.4rem .8rem;">Delete</button>
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    async function toggleJob(id, activate) {
+      await fetch(`/api/admin/jobs/${id}`, { 
+        method: "PATCH", 
+        headers: { "Content-Type":"application/json", Authorization: `Bearer ${localStorage.token}` },
+        body: JSON.stringify({ active: activate })
+      });
+      loadJobs();
+    }
+
+    async function deleteJob(id) {
+      if (!confirm("Delete this job?")) return;
+      await fetch(`/api/admin/jobs/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${localStorage.token}` }});
+      loadJobs();
+    }
+  </script>
+</body>
+</html>

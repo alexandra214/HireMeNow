@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Details - HireMeNow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>HireMeNow</h1>
+    <nav id="navLinks"></nav>
+  </header>
+
+  <main>
+    <div id="jobDetails" style="max-width:900px;margin:2rem auto;background:#fff;padding:2rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.06);">
+      Loading job...
+    </div>
+  </main>
+
+  <footer><p>© 2025 HireMeNow. All rights reserved.</p></footer>
+
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const user = await setupAuth();
+      if (!user || (user.role !== "employer" && user.role !== "admin")) {
+        alert("Access denied");
+        location.href = "/jobs.html";
+        return;
+      }
+
+      const jobId = new URLSearchParams(location.search).get("id");
+      if (!jobId) return location.href = "/jobs.html";
+
+      const [jobRes, appRes] = await Promise.all([
+        fetch(`/api/jobs/${jobId}`),
+        fetch(`/api/jobs/${jobId}/applicants`, { headers: { authorization: `Bearer ${localStorage.getItem("token")}` } })
+      ]);
+
+      if (!jobRes.ok) {
+        document.getElementById("jobDetails").innerHTML = "<p>Job not found</p>";
+        return;
+      }
+
+      const job = await jobRes.json();
+      const applicants = appRes.ok ? await appRes.json() : await appRes.json();
+
+      if (user.role === "employer" && job.employer_id !== user.id) {
+        alert("Not your job");
+        location.href = "/employer-dashboard.html";
+        return;
+      }
+
+      const applicantsHTML = applicants.length
+        ? `<h3>Applicants (${applicants.length})</h3>
+           <div style="display:grid;gap:1rem;">
+             ${applicants.map(a => `
+               <div style="border:1px solid #ddd;padding:1rem;border-radius:8px;">
+                 <strong>${a.name}</strong> (${a.email})<br>
+                 <small>Applied: ${new Date(a.applied_at).toLocaleDateString()}</small><br>
+                 <button onclick="viewPortfolio(${a.student_id})" class="btn">
+                   View Portfolio
+                 </button>
+               </div>
+             `).join("")}
+           </div>`
+        : "<p>No applicants yet.</p>";
+
+      document.getElementById("jobDetails").innerHTML = `
+        <div class="job-details-actions">
+          <a href="employer-dashboard.html" class="btn btn-back-dashboard">Back to Dashboard</a>
+          <a href="post-job.html?id=${job.id}" class="btn">Edit Job</a>
+        </div>
+        <h2>${job.title}</h2>
+        <p><strong>Type:</strong> ${job.type || "N/A"} | <strong>Salary:</strong> $${job.salary || "Negotiable"}</p>
+        <p><strong>Posted:</strong> ${new Date(job.created_at || Date.now()).toLocaleDateString()}</p>
+        <h3>Description</h3>
+        <p style="line-height:1.7;color:#444;">${job.description}</p>
+        <hr style="margin:2rem 0;">
+        ${applicantsHTML}
+      `;
+    })();
+
+    function viewPortfolio(userId) {
+      const token = localStorage.getItem("token");
+      if (!token) return alert("You are not logged in");
+
+      const id = Number(userId);
+      if (isNaN(id) || id <= 0) return alert("Invalid student ID");
+
+      fetch(`/api/portfolio/form/${id}`, {
+        headers: { authorization: `Bearer ${token}` }
+      })
+      .then(r => {
+        if (!r.ok) throw new Error("Not found");
+        return r.json();
+      })
+      .then(data => {
+        if (!data) return alert("This student hasn't created a portfolio yet.");
+
+        const win = window.open("", "_blank");
+        win.document.write(`
+          <html><head><title>Portfolio - ${data.full_name || "Student"}</title></head>
+          <body style="font-family:Arial,sans-serif;padding:40px;background:#f4f6f9;">
+            <div style="max-width:800px;margin:auto;background:white;padding:30px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+              <h1 style="color:#2c3e50;">${data.full_name || "No name"}</h1>
+              <p><strong>Email:</strong> ${data.email || "—"} | <strong>Phone:</strong> ${data.phone || "—"}</p>
+              <hr>
+              <h2>Education</h2><p style="white-space:pre-wrap;">${data.education || "Not provided"}</p>
+              <h2>Experience</h2><p style="white-space:pre-wrap;">${data.experience || "Not provided"}</p>
+              <h2>Skills</h2><p style="white-space:pre-wrap;">${data.skills || "Not provided"}</p>
+              <h2>Summary</h2><p style="white-space:pre-wrap;">${data.summary || "Not provided"}</p>
+            </div>
+          </body></html>
+        `);
+        win.document.close();
+      })
+      .catch(() => alert("Error loading portfolio"));
+    }
+  </script>
+</body>
+</html>

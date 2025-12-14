@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employer Dashboard - HireMeNow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Employer Dashboard</h1>
+    <nav id="navLinks">
+      <a href="post-job.html">Post Job</a>
+    </nav>
+  </header>
+
+  <main>
+    <div style="max-width:1000px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+        <h2>My Posted Jobs</h2>
+        <a href="post-job.html" class="btn">Post New Job</a>
+      </div>
+      <div id="myJobs">Loading...</div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 HireMeNow. All rights reserved.</p>
+  </footer>
+
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const user = await setupAuth();
+      if (user.role !== "employer") return window.location.href = "/index.html";
+
+      try {
+        const res = await fetch("/api/jobs", {
+          headers: { 
+            "authorization": `Bearer ${localStorage.getItem("token")}`   // ← lowercase + object
+          }
+        });
+        const allJobs = await res.json();
+        const myJobs = allJobs.filter(j => j.employer_id === user.id);
+
+        const container = document.getElementById("myJobs");
+
+        if (myJobs.length === 0) {
+          container.innerHTML = `<p>You haven't posted any jobs yet. <a href="post-job.html">Post one now!</a></p>`;
+          return;
+        }
+
+        container.innerHTML = myJobs.map(job => `
+          <div class="job-card" style="margin-bottom:1rem;">
+            <h3>${job.title}</h3>
+            <p>${job.description.substring(0, 150)}...</p>
+            <p><strong>Type:</strong> ${job.type || "N/A"} | <strong>Salary:</strong> $${job.salary || "Negotiable"}</p>
+            <a href="job-details.html?id=${job.id}" class="btn">View Job</a>
+          </div>
+        `).join("");
+      } catch (err) {
+        document.getElementById("myJobs").innerHTML = "<p>Failed to load your jobs.</p>";
+      }
+    })();
+  </script>
+</body>
+</html>

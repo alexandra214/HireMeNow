@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post a Job - HireMeNow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>HireMeNow</h1>
+    <nav id="navLinks">
+      <a href="index.html">Home</a>
+      <a href="jobs.html">Jobs</a>
+      <a href="post-job.html">Post a Job</a>
+      <a href="#" id="dashboardLink">Dashboard</a>
+      <a href="#" id="logoutLink">Logout</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="post-job-container">
+      <h2>Post a New Job</h2>
+      <form id="postJobForm">
+        <div class="form-grid">
+          <div>
+            <label>Job Title</label>
+            <input type="text" id="title" required>
+          </div>
+          <div>
+            <label>Salary (optional)</label>
+            <input type="text" id="salary" placeholder="e.g. 50000">
+          </div>
+        </div>
+        <div class="form-grid full-width">
+          <label>Job Type</label>
+          <input type="text" id="type" placeholder="e.g. Full-time, Internship">
+        </div>
+        <div class="form-grid full-width">
+          <label>Description</label>
+          <textarea id="description" required></textarea>
+        </div>
+        <button type="submit">Publish Job</button>
+      </form>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 HireMeNow. All rights reserved.</p>
+  </footer>
+
+  <script src="js/auth.js"></script>
+  <script>
+    setupAuth();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const jobId = urlParams.get('id');
+
+    if (jobId) {
+      document.querySelector("h2").textContent = "Edit Job";
+      document.querySelector("button").textContent = "Save Changes";
+
+      // Load existing job
+      fetch(`/api/jobs/${jobId}`)
+        .then(r => r.json())
+        .then(job => {
+          document.getElementById("title").value = job.title;
+          document.getElementById("description").value = job.description;
+          document.getElementById("type").value = job.type || "";
+          document.getElementById("salary").value = job.salary || "";
+        });
+    }
+
+    document.getElementById("postJobForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        type: document.getElementById("type").value || null,
+        salary: document.getElementById("salary").value || null
+      };
+
+      const method = jobId ? "PUT" : "POST";
+      const url = jobId ? `/api/jobs/${jobId}` : "/api/jobs";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        alert(jobId ? "Job updated!" : "Job posted!");
+        location.href = "employer-dashboard.html";
+      }
+    };
+  </script>
+</body>
+</html>

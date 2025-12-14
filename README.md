@@ -1,0 +1,2 @@
+# HireMeNow
+HireMeNow JavaScript edition
